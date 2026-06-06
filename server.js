@@ -15,10 +15,12 @@ app.use(express.json());
 import authRoutes from './src/routes/authRoutes.js';
 import userRoutes from './src/routes/userRoutes.js';
 import taskRoutes from './src/routes/taskRoutes.js';
+import notificationRoutes from './src/routes/notificationRoutes.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/', (req, res) => {
