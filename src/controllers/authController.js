@@ -1,3 +1,4 @@
+// Security: All inputs validated and sanitized before DB operations
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
