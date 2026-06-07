@@ -1,34 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authService } from '../services/api';
+import { socketService } from '../services/socketService';
 
 const AuthContext = createContext(null);
-
-const MOCK_USERS = {
-  'admin@taskflow.com': {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@taskflow.com',
-    role: 'Administrator',
-    avatar: null,
-    password: 'admin123',
-  },
-  'pm@taskflow.com': {
-    id: '2',
-    name: 'Sarah Miller',
-    email: 'pm@taskflow.com',
-    role: 'Project Manager',
-    avatar: null,
-    password: 'pm123',
-  },
-  'collab@taskflow.com': {
-    id: '3',
-    name: 'John Doe',
-    email: 'collab@taskflow.com',
-    role: 'Collaborator',
-    avatar: null,
-    password: 'collab123',
-  },
-};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -42,6 +16,7 @@ export function AuthProvider({ children }) {
       try {
         setToken(savedToken);
         setUser(JSON.parse(savedUser));
+        socketService.connect(savedToken); // reconnect socket on page refresh
       } catch {
         localStorage.removeItem('taskflow_token');
         localStorage.removeItem('taskflow_user');
@@ -51,28 +26,18 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const response = await authService.login(email, password);
+    const { token: newToken, user: userData } = response.data;
 
-    const mockUser = MOCK_USERS[email];
-    if (mockUser && mockUser.password === password) {
-      const fakeToken = 'jwt_' + btoa(email) + '_' + Date.now();
-      const userData = {
-        id: mockUser.id,
-        name: mockUser.name,
-        email: mockUser.email,
-        role: mockUser.role,
-        avatar: mockUser.avatar,
-      };
+    setToken(newToken);
+    setUser(userData);
+    localStorage.setItem('taskflow_token', newToken);
+    localStorage.setItem('taskflow_user', JSON.stringify(userData));
 
-      setToken(fakeToken);
-      setUser(userData);
-      localStorage.setItem('taskflow_token', fakeToken);
-      localStorage.setItem('taskflow_user', JSON.stringify(userData));
-      return { success: true };
-    }
+    // Connect socket after login
+    socketService.connect(newToken);
 
-    throw new Error('Incorrect email or password. Please try again.');
+    return { success: true };
   }, []);
 
   const logout = useCallback(() => {
@@ -80,6 +45,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     localStorage.removeItem('taskflow_token');
     localStorage.removeItem('taskflow_user');
+    socketService.disconnect(); // disconnect socket on logout
   }, []);
 
   const isAuthenticated = !!token && !!user;
