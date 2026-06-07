@@ -1,10 +1,6 @@
 
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { prisma } from '../config/prisma.js';
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
 // GET /api/tasks - Get all tasks
 export const getTasks = async (req, res) => {
