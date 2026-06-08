@@ -1,13 +1,7 @@
 // Security: All inputs validated and sanitized before DB operations
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { prisma } from '../config/prisma.js';
 import { comparePassword, hashPassword } from '../utils/hashHelper.js';
 import { generateToken } from '../utils/jwtHelper.js';
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
-
 // POST /api/auth/login
 export const login = async (req, res) => {
   try {
