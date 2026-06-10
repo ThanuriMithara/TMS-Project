@@ -1,6 +1,4 @@
-
 import { prisma } from '../config/prisma.js';
-
 
 // GET /api/tasks - Get all tasks
 export const getTasks = async (req, res) => {
