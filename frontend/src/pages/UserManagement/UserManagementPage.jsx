@@ -25,7 +25,7 @@ export default function UserManagementPage() {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [modalForm, setModalForm] = useState({ name: '', email: '', role: 'Collaborator', password: '' });
+  const [modalForm, setModalForm] = useState({ name: '', email: '', role: 'Collaborator' });
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -66,7 +66,7 @@ export default function UserManagementPage() {
 
   const openCreateModal = () => {
     setEditingUser(null);
-    setModalForm({ name: '', email: '', role: 'Collaborator', password: '' });
+    setModalForm({ name: '', email: '', role: 'Collaborator' });
     setErrors({});
     setApiError('');
     setIsModalOpen(true);
@@ -74,7 +74,7 @@ export default function UserManagementPage() {
 
   const openEditModal = (user) => {
     setEditingUser(user);
-    setModalForm({ name: user.name, email: user.email, role: user.role, password: '' });
+    setModalForm({ name: user.name, email: user.email, role: user.role });
     setErrors({});
     setApiError('');
     setIsModalOpen(true);
@@ -85,9 +85,6 @@ export default function UserManagementPage() {
     if (!modalForm.name.trim()) errs.name = 'Name is required';
     if (!modalForm.email.trim()) errs.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(modalForm.email)) errs.email = 'Enter a valid email';
-    if (!editingUser && (!modalForm.password || modalForm.password.length < 6)) {
-      errs.password = 'Password must be at least 6 characters';
-    }
     return errs;
   };
 
@@ -105,9 +102,6 @@ export default function UserManagementPage() {
         email: modalForm.email,
         role: REVERSE_ROLE_MAP[modalForm.role],
       };
-      if (modalForm.password) {
-        payload.password = modalForm.password;
-      }
 
       if (editingUser) {
         await userService.update(editingUser.id, payload);
@@ -218,22 +212,6 @@ export default function UserManagementPage() {
                 />
                 {errors.email && <span className={styles.fieldError}>{errors.email}</span>}
               </div>
-
-              {!editingUser && (
-                <div className={styles.fieldGroup}>
-                  <label className={styles.label} htmlFor="modal-password">
-                    Password <span className={styles.required}>*</span>
-                  </label>
-                  <input
-                    id="modal-password"
-                    type="password"
-                    className={styles.input}
-                    value={modalForm.password}
-                    onChange={(e) => setModalForm((prev) => ({ ...prev, password: e.target.value }))}
-                  />
-                  {errors.password && <span className={styles.fieldError}>{errors.password}</span>}
-                </div>
-              )}
 
               <div className={styles.fieldGroup}>
                 <label className={styles.label} htmlFor="modal-role">Role</label>
