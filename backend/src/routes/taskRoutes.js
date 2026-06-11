@@ -18,7 +18,18 @@ const router = express.Router();
 // All routes below require login
 router.use(authenticate);
 
-// Task routes
+/**
+ * @swagger
+ * /api/tasks:
+ *   get:
+ *     summary: Retrieve a list of tasks
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: A list of tasks
+ */
 router.get('/', getTasks);
 router.post('/', authorize('project_manager', 'admin'), createTask);
 router.get('/:id', getTaskById);

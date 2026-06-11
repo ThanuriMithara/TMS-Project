@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma.js';
+import { sendNotification } from '../utils/notificationHelper.js';
 
 // GET /api/tasks - Get all tasks
 export const getTasks = async (req, res) => {
@@ -131,7 +132,13 @@ export const updateTaskStatus = async (req, res) => {
     const task = await prisma.task.update({
       where: { id: req.params.id },
       data: { status },
+      include: { assignments: true },
     });
+
+    // Notify assigned users
+    for (const assignment of task.assignments) {
+      await sendNotification(req, assignment.user_id, `Task "${task.title}" status changed to ${status}`);
+    }
 
     res.json(task);
   } catch (error) {
@@ -158,6 +165,12 @@ export const assignTask = async (req, res) => {
       })),
       skipDuplicates: true,
     });
+
+    // Notify assigned users
+    const task = await prisma.task.findUnique({ where: { id: req.params.id }});
+    for (const uid of user_ids) {
+      await sendNotification(req, uid, `You have been assigned to task: ${task.title}`);
+    }
 
     res.json({ message: 'Users assigned successfully' });
   } catch (error) {

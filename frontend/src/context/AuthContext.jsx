@@ -25,12 +25,15 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const response = await authService.login(email, password);
-    const { token, user } = response.data;
+    const { token, user, must_reset_password } = response.data;
+    if (must_reset_password !== undefined) {
+      user.must_reset_password = must_reset_password;
+    }
     setToken(token);
     setUser(user);
     localStorage.setItem('taskflow_token', token);
     localStorage.setItem('taskflow_user', JSON.stringify(user));
-    return { success: true };
+    return { success: true, must_reset_password: user.must_reset_password };
   }, []);
 
   const logout = useCallback(() => {

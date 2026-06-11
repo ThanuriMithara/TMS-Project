@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpecs from './swagger.js';
 import { initSocket } from './src/sockets/socketHandler.js';
 
 dotenv.config();
@@ -11,16 +13,18 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
+const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174'];
+
 // Socket.IO setup
 const io = new Server(httpServer, {
-  cors: { origin: 'http://localhost:5173', credentials: true }
+  cors: { origin: allowedOrigins, credentials: true }
 });
 app.set('io', io);
 initSocket(io);
 
 // Middleware
 app.use(helmet());
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // Routes
@@ -33,6 +37,8 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 
 // Health check
 app.get('/', (req, res) => {

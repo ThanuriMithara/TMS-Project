@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { notificationService } from '../../services/api';
+import { useNotifications } from '../../context/NotificationContext';
 import styles from './NotificationDropdown.module.css';
 
 const TYPE_ICONS = {
@@ -11,44 +10,7 @@ const TYPE_ICONS = {
 };
 
 export default function NotificationDropdown({ onClose }) {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      const res = await notificationService.getAll();
-      setNotifications(res.data || []);
-    } catch (err) {
-      console.error('Error fetching notifications', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const markAsRead = async (id) => {
-    try {
-      await notificationService.markAsRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      );
-    } catch (err) {
-      console.error('Failed to mark notification as read', err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      await notificationService.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    } catch (err) {
-      console.error('Failed to mark all notifications as read', err);
-    }
-  };
+  const { notifications, loading, markAsRead, markAllAsRead } = useNotifications();
 
   return (
     <>
