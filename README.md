@@ -15,19 +15,19 @@ A full-stack collaborative Task Management System featuring role-based access co
 
 - **Frontend:** React, React Router, Vite, Socket.io-client.
 - **Backend:** Node.js, Express, Prisma ORM, Socket.io, Swagger.
-- **Database:** MySQL.
+- **Database:** PostgreSQL.
 - **Deployment:** Docker, Docker Compose, Nginx.
 
 ## Running Locally (Without Docker)
 
 ### Prerequisites
 - Node.js (v18 or higher)
-- MySQL running locally
+- PostgreSQL running locally
 
 ### Backend Setup
 1. `cd backend`
 2. `npm install`
-3. Configure your `.env` file with `DATABASE_URL` (MySQL) and `JWT_SECRET`.
+3. Configure your `.env` file with `DATABASE_URL` (PostgreSQL) and `JWT_SECRET`.
 4. Run migrations: `npx prisma migrate dev`
 5. Seed data: `npx prisma db seed` (if available)
 6. Start the server: `npm run dev`
