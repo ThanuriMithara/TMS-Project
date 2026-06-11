@@ -1,17 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UserTable from '../../components/UserTable/UserTable';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
+import { userService } from '../../services/api';
 import styles from './UserManagementPage.module.css';
 
-const INITIAL_USERS = [
-  { id: '1', name: 'Admin User', email: 'admin@taskflow.com', role: 'Administrator', status: 'Active' },
-  { id: '2', name: 'Sarah Miller', email: 'pm@taskflow.com', role: 'Project Manager', status: 'Active' },
-  { id: '3', name: 'John Doe', email: 'collab@taskflow.com', role: 'Collaborator', status: 'Active' },
-  { id: '4', name: 'Emma Wilson', email: 'emma@taskflow.com', role: 'Collaborator', status: 'Inactive' },
-];
+const ROLE_MAP = {
+  'admin': 'Administrator',
+  'project_manager': 'Project Manager',
+  'collaborator': 'Collaborator'
+};
+
+const REVERSE_ROLE_MAP = {
+  'Administrator': 'admin',
+  'Project Manager': 'project_manager',
+  'Collaborator': 'collaborator'
+};
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   
@@ -20,9 +27,35 @@ export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState(null);
   const [modalForm, setModalForm] = useState({ name: '', email: '', role: 'Collaborator' });
   const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Confirmation Modal
   const [statusConfirmUser, setStatusConfirmUser] = useState(null);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const res = await userService.getAll();
+      const formatted = res.data.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: ROLE_MAP[u.role] || u.role,
+        status: u.is_active ? 'Active' : 'Inactive',
+        rawRole: u.role
+      }));
+      setUsers(formatted);
+    } catch (err) {
+      console.error('Failed to fetch users', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = users.filter((u) => {
     const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -35,6 +68,7 @@ export default function UserManagementPage() {
     setEditingUser(null);
     setModalForm({ name: '', email: '', role: 'Collaborator' });
     setErrors({});
+    setApiError('');
     setIsModalOpen(true);
   };
 
@@ -42,6 +76,7 @@ export default function UserManagementPage() {
     setEditingUser(user);
     setModalForm({ name: user.name, email: user.email, role: user.role });
     setErrors({});
+    setApiError('');
     setIsModalOpen(true);
   };
 
@@ -53,41 +88,56 @@ export default function UserManagementPage() {
     return errs;
   };
 
-  const handleSaveUser = (e) => {
+  const handleSaveUser = async (e) => {
     e.preventDefault();
+    setApiError('');
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
-    if (editingUser) {
-      // Edit User
-      setUsers((prev) =>
-        prev.map((u) => (u.id === editingUser.id ? { ...u, ...modalForm } : u))
-      );
-    } else {
-      // Create User
-      const newUser = {
-        id: String(users.length + 1),
-        ...modalForm,
-        status: 'Active',
+    setSaving(true);
+    try {
+      const payload = {
+        name: modalForm.name,
+        email: modalForm.email,
+        role: REVERSE_ROLE_MAP[modalForm.role],
       };
-      setUsers((prev) => [...prev, newUser]);
+
+      if (editingUser) {
+        await userService.update(editingUser.id, payload);
+      } else {
+        await userService.create(payload);
+      }
+      setIsModalOpen(false);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      setApiError(err.response?.data?.message || 'Failed to save user');
+    } finally {
+      setSaving(false);
     }
-    setIsModalOpen(false);
   };
 
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (statusConfirmUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === statusConfirmUser.id
-            ? { ...u, status: u.status === 'Active' ? 'Inactive' : 'Active' }
-            : u
-        )
-      );
-      setStatusConfirmUser(null);
+      try {
+        if (statusConfirmUser.status === 'Active') {
+          await userService.deactivate(statusConfirmUser.id);
+        } else {
+          await userService.activate(statusConfirmUser.id);
+        }
+        fetchUsers();
+      } catch (err) {
+        console.error('Failed to toggle status', err);
+      } finally {
+        setStatusConfirmUser(null);
+      }
     }
   };
+
+  if (loading && users.length === 0) {
+    return <div className={styles.page}><p>Loading Users...</p></div>;
+  }
 
   return (
     <div className={styles.page}>
@@ -133,6 +183,7 @@ export default function UserManagementPage() {
         <div className={styles.modalOverlay}>
           <div className={styles.modalCard}>
             <h3 className={styles.modalTitle}>{editingUser ? 'Edit User' : 'Add New User'}</h3>
+            {apiError && <div style={{color: 'red', marginBottom: '1rem'}}>{apiError}</div>}
             <form className={styles.form} onSubmit={handleSaveUser} noValidate>
               <div className={styles.fieldGroup}>
                 <label className={styles.label} htmlFor="modal-name">
@@ -180,8 +231,8 @@ export default function UserManagementPage() {
                 <button type="button" className={styles.cancelBtn} onClick={() => setIsModalOpen(false)}>
                   Cancel
                 </button>
-                <button type="submit" className={styles.saveBtn}>
-                  {editingUser ? 'Save Changes' : 'Create User'}
+                <button type="submit" className={styles.saveBtn} disabled={saving}>
+                  {saving ? 'Saving...' : editingUser ? 'Save Changes' : 'Create User'}
                 </button>
               </div>
             </form>

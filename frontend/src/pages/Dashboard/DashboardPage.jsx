@@ -1,33 +1,70 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
 import KanbanColumn from '../../components/KanbanColumn/KanbanColumn';
+import { taskService } from '../../services/api';
 import styles from './DashboardPage.module.css';
 
-const INITIAL_TASKS = {
-  todo: [
-    { id: 't1', title: 'Design login page mockup', priority: 'High', dueDate: '2026-06-05', assignee: 'Sarah Miller' },
-    { id: 't2', title: 'Setup project repository', priority: 'Medium', dueDate: '2026-06-04', assignee: 'John Doe' },
-    { id: 't3', title: 'Write API documentation', priority: 'Low', dueDate: '2026-06-10', assignee: 'Admin User' },
-    { id: 't4', title: 'Create database schema', priority: 'High', dueDate: '2026-06-06', assignee: 'Sarah Miller' },
-  ],
-  inprogress: [
-    { id: 't5', title: 'Implement user authentication', priority: 'High', dueDate: '2026-06-07', assignee: 'John Doe' },
-    { id: 't6', title: 'Build dashboard UI', priority: 'Medium', dueDate: '2026-06-08', assignee: 'Sarah Miller' },
-    { id: 't7', title: 'Configure CI/CD pipeline', priority: 'Low', dueDate: '2026-06-12', assignee: 'Admin User' },
-  ],
-  completed: [
-    { id: 't8', title: 'Project kickoff meeting', priority: 'Medium', dueDate: '2026-06-01', assignee: 'Admin User' },
-    { id: 't9', title: 'Requirements gathering', priority: 'High', dueDate: '2026-06-02', assignee: 'Sarah Miller' },
-  ],
+const STATUS_TO_COLUMN_MAP = {
+  'todo': 'todo',
+  'in_progress': 'inprogress',
+  'completed': 'completed'
+};
+
+const COLUMN_TO_STATUS_MAP = {
+  'todo': 'todo',
+  'inprogress': 'in_progress',
+  'completed': 'completed'
 };
 
 export default function DashboardPage() {
-  const [columns, setColumns] = useState(INITIAL_TASKS);
+  const [columns, setColumns] = useState({
+    todo: [],
+    inprogress: [],
+    completed: []
+  });
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
 
-  const handleDragEnd = (result) => {
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const res = await taskService.getAll();
+      const newColumns = { todo: [], inprogress: [], completed: [] };
+      
+      res.data.forEach((t) => {
+        let assignee = 'Unassigned';
+        if (t.assignments && t.assignments.length > 0 && t.assignments[0].user) {
+          assignee = t.assignments[0].user.name || t.assignments[0].user.email;
+        }
+        
+        const taskObj = {
+          id: t.id,
+          title: t.title,
+          assignee,
+          priority: t.priority.charAt(0).toUpperCase() + t.priority.slice(1).toLowerCase(),
+          dueDate: t.due_date ? new Date(t.due_date).toISOString().split('T')[0] : 'No date',
+          rawStatus: t.status,
+        };
+        
+        const colId = STATUS_TO_COLUMN_MAP[t.status] || 'todo';
+        newColumns[colId].push(taskObj);
+      });
+      
+      setColumns(newColumns);
+    } catch (err) {
+      console.error('Error fetching tasks', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDragEnd = async (result) => {
     const { source, destination } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
@@ -40,6 +77,7 @@ export default function DashboardPage() {
     const [moved] = sourceCol.splice(source.index, 1);
     destCol.splice(destination.index, 0, moved);
 
+    // Optimistically update UI
     setColumns((prev) => ({
       ...prev,
       [source.droppableId]: sourceCol,
@@ -47,17 +85,35 @@ export default function DashboardPage() {
         [destination.droppableId]: destCol,
       }),
     }));
+
+    // Update backend if column changed
+    if (source.droppableId !== destination.droppableId) {
+      try {
+        const newStatus = COLUMN_TO_STATUS_MAP[destination.droppableId];
+        await taskService.updateStatus(moved.id, newStatus);
+      } catch (err) {
+        console.error('Failed to update task status', err);
+        // Could revert state here on failure
+        fetchTasks();
+      }
+    }
   };
 
   const filterTasks = (tasks) => {
     return tasks.filter((task) => {
       const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesPriority = priorityFilter === 'All' || task.priority === priorityFilter;
-      return matchesSearch && matchesPriority;
+      const statusMap = { 'To Do': 'todo', 'In Progress': 'in_progress', 'Completed': 'completed' };
+      const matchesStatus = statusFilter === 'All' || task.rawStatus === statusMap[statusFilter];
+      return matchesSearch && matchesPriority && matchesStatus;
     });
   };
 
   const totalTasks = Object.values(columns).flat().length;
+
+  if (loading) {
+    return <div className={styles.page}><p>Loading Dashboard...</p></div>;
+  }
 
   return (
     <div className={styles.page}>

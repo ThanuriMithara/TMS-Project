@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useNotifications } from '../../context/NotificationContext';
 import NotificationDropdown from '../NotificationDropdown/NotificationDropdown';
 import styles from './Navbar.module.css';
 
 export default function Navbar({ onToggleSidebar }) {
   const { user } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { unreadCount } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
 
   const initials = user?.name
@@ -53,7 +55,7 @@ export default function Navbar({ onToggleSidebar }) {
             id="notification-bell"
           >
             🔔
-            <span className={styles.badge}>3</span>
+            {unreadCount > 0 && <span className={styles.badge}>{unreadCount}</span>}
           </button>
           {showNotifications && (
             <NotificationDropdown

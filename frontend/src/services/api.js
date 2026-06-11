@@ -50,6 +50,7 @@ export const taskService = {
   update: (id, data) => api.put(`/tasks/${id}`, data),
   delete: (id) => api.delete(`/tasks/${id}`),
   updateStatus: (id, status) => api.patch(`/tasks/${id}/status`, { status }),
+  assignTask: (id, user_ids) => api.post(`/tasks/${id}/assign`, { user_ids }),
 };
 
 /* ========== USERS ========== */
@@ -71,9 +72,8 @@ export const notificationService = {
 
 /* ========== SETTINGS ========== */
 export const settingsService = {
-  getProfile: () => api.get('/settings/profile'),
-  updateProfile: (data) => api.put('/settings/profile', data),
-  changePassword: (data) => api.put('/settings/password', data),
+  updateProfile: (data) => api.put('/auth/profile', data),
+  changePassword: (data) => api.post('/auth/reset-password', data),
 };
 
 export default api;

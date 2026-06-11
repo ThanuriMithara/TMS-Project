@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ErrorAlert from '../../components/ErrorAlert/ErrorAlert';
+import { taskService, userService } from '../../services/api';
 import styles from './TaskFormPage.module.css';
 
-const MOCK_USERS = [
-  { id: '1', name: 'Admin User' },
-  { id: '2', name: 'Sarah Miller' },
-  { id: '3', name: 'John Doe' },
-];
+const STATUS_MAP = {
+  'To Do': 'todo',
+  'In Progress': 'in_progress',
+  'Completed': 'completed',
+};
 
-const MOCK_TASKS = {
-  t1: { title: 'Design login page mockup', description: 'Create high-fidelity mockup for the login page with all states.', priority: 'High', status: 'To Do', dueDate: '2026-06-05', assigneeId: '2' },
-  t5: { title: 'Implement user authentication', description: 'Set up JWT-based authentication with login, logout, and token refresh.', priority: 'High', status: 'In Progress', dueDate: '2026-06-07', assigneeId: '3' },
+const STATUS_DISPLAY_MAP = {
+  'todo': 'To Do',
+  'in_progress': 'In Progress',
+  'completed': 'Completed',
 };
 
 export default function TaskFormPage() {
@@ -27,14 +29,45 @@ export default function TaskFormPage() {
     dueDate: '',
     assigneeId: '',
   });
+
+  const [users, setUsers] = useState([]);
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isEditing && MOCK_TASKS[id]) {
-      setForm(MOCK_TASKS[id]);
-    }
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const usersRes = await userService.getAll();
+        setUsers(usersRes.data || []);
+        
+        if (isEditing) {
+          const taskRes = await taskService.getById(id);
+          const t = taskRes.data;
+          let assigneeId = '';
+          if (t.assignments && t.assignments.length > 0) {
+            assigneeId = t.assignments[0].user_id;
+          }
+          setForm({
+            title: t.title || '',
+            description: t.description || '',
+            priority: t.priority.charAt(0).toUpperCase() + t.priority.slice(1).toLowerCase(),
+            status: STATUS_DISPLAY_MAP[t.status] || 'To Do',
+            dueDate: t.due_date ? new Date(t.due_date).toISOString().split('T')[0] : '',
+            assigneeId,
+          });
+        }
+      } catch (err) {
+        console.error(err);
+        setApiError('Failed to load data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
   }, [id, isEditing]);
 
   const handleChange = (field, value) => {
@@ -45,8 +78,6 @@ export default function TaskFormPage() {
   const validate = () => {
     const errs = {};
     if (!form.title.trim()) errs.title = 'Title is required';
-    if (!form.dueDate) errs.dueDate = 'Due date is required';
-    if (!form.assigneeId) errs.assigneeId = 'Assignee is required';
     return errs;
   };
 
@@ -58,11 +89,36 @@ export default function TaskFormPage() {
     if (Object.keys(errs).length > 0) return;
 
     setSaving(true);
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    navigate('/tasks');
+    try {
+      const payload = {
+        title: form.title,
+        description: form.description,
+        priority: form.priority.toLowerCase(),
+        status: STATUS_MAP[form.status],
+        due_date: form.dueDate || undefined,
+        assignee_ids: form.assigneeId ? [form.assigneeId] : []
+      };
+
+      if (isEditing) {
+        await taskService.update(id, payload);
+        if (form.assigneeId) {
+          await taskService.assignTask(id, [form.assigneeId]);
+        }
+      } else {
+        await taskService.create(payload);
+      }
+      navigate('/tasks');
+    } catch (err) {
+      console.error(err);
+      setApiError(err.response?.data?.message || 'Failed to save task.');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return <div className={styles.page}><p>Loading...</p></div>;
+  }
 
   return (
     <div className={styles.page}>
@@ -134,7 +190,7 @@ export default function TaskFormPage() {
           <div className={styles.row}>
             <div className={styles.fieldGroup}>
               <label className={styles.label} htmlFor="task-due-date">
-                Due Date <span className={styles.required}>*</span>
+                Due Date
               </label>
               <input
                 id="task-due-date"
@@ -148,7 +204,7 @@ export default function TaskFormPage() {
 
             <div className={styles.fieldGroup}>
               <label className={styles.label} htmlFor="task-assignee">
-                Assignee <span className={styles.required}>*</span>
+                Assignee
               </label>
               <select
                 id="task-assignee"
@@ -156,9 +212,9 @@ export default function TaskFormPage() {
                 value={form.assigneeId}
                 onChange={(e) => handleChange('assigneeId', e.target.value)}
               >
-                <option value="">Select assignee...</option>
-                {MOCK_USERS.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
+                <option value="">Unassigned</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name || u.email}</option>
                 ))}
               </select>
               {errors.assigneeId && <span className={styles.fieldError}>{errors.assigneeId}</span>}

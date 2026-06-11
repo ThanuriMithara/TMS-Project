@@ -1,39 +1,63 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ConfirmationModal from '../../components/ConfirmationModal/ConfirmationModal';
+import { taskService } from '../../services/api';
 import styles from './TasksPage.module.css';
-
-const ALL_TASKS = [
-  { id: 't1', title: 'Design login page mockup', assignee: 'Sarah Miller', priority: 'High', status: 'To Do', dueDate: '2026-06-05' },
-  { id: 't2', title: 'Setup project repository', assignee: 'John Doe', priority: 'Medium', status: 'To Do', dueDate: '2026-06-04' },
-  { id: 't3', title: 'Write API documentation', assignee: 'Admin User', priority: 'Low', status: 'To Do', dueDate: '2026-06-10' },
-  { id: 't4', title: 'Create database schema', assignee: 'Sarah Miller', priority: 'High', status: 'To Do', dueDate: '2026-06-06' },
-  { id: 't5', title: 'Implement user authentication', assignee: 'John Doe', priority: 'High', status: 'In Progress', dueDate: '2026-06-07' },
-  { id: 't6', title: 'Build dashboard UI', assignee: 'Sarah Miller', priority: 'Medium', status: 'In Progress', dueDate: '2026-06-08' },
-  { id: 't7', title: 'Configure CI/CD pipeline', assignee: 'Admin User', priority: 'Low', status: 'In Progress', dueDate: '2026-06-12' },
-  { id: 't8', title: 'Project kickoff meeting', assignee: 'Admin User', priority: 'Medium', status: 'Completed', dueDate: '2026-06-01' },
-  { id: 't9', title: 'Requirements gathering', assignee: 'Sarah Miller', priority: 'High', status: 'Completed', dueDate: '2026-06-02' },
-  { id: 't10', title: 'User acceptance testing', assignee: 'John Doe', priority: 'Medium', status: 'To Do', dueDate: '2026-06-15' },
-  { id: 't11', title: 'Performance optimization', assignee: 'Sarah Miller', priority: 'Low', status: 'To Do', dueDate: '2026-06-18' },
-  { id: 't12', title: 'Security audit', assignee: 'Admin User', priority: 'High', status: 'To Do', dueDate: '2026-06-20' },
-];
 
 const ITEMS_PER_PAGE = 8;
 
 const STATUS_MAP = {
   'To Do': 'todo',
-  'In Progress': 'inprogress',
-  Completed: 'completed',
+  'In Progress': 'in_progress',
+  'Completed': 'completed',
+};
+
+const STATUS_DISPLAY_MAP = {
+  'todo': 'To Do',
+  'in_progress': 'In Progress',
+  'completed': 'Completed',
 };
 
 export default function TasksPage() {
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState(ALL_TASKS);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteTask, setDeleteTask] = useState(null);
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const res = await taskService.getAll();
+      const formatted = res.data.map((t) => {
+        let assignee = 'Unassigned';
+        if (t.assignments && t.assignments.length > 0 && t.assignments[0].user) {
+          assignee = t.assignments[0].user.name || t.assignments[0].user.email;
+        }
+        return {
+          id: t.id,
+          title: t.title,
+          assignee,
+          priority: t.priority.charAt(0).toUpperCase() + t.priority.slice(1).toLowerCase(),
+          status: STATUS_DISPLAY_MAP[t.status] || t.status,
+          dueDate: t.due_date ? new Date(t.due_date).toISOString().split('T')[0] : 'No date',
+          rawStatus: t.status,
+        };
+      });
+      setTasks(formatted);
+    } catch (err) {
+      console.error('Error fetching tasks', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = tasks.filter((t) => {
     const matchSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -43,24 +67,32 @@ export default function TasksPage() {
     return matchSearch && matchPriority && matchStatus;
   });
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteTask) {
-      setTasks((prev) => prev.filter((t) => t.id !== deleteTask.id));
-      setDeleteTask(null);
+      try {
+        await taskService.delete(deleteTask.id);
+        setTasks((prev) => prev.filter((t) => t.id !== deleteTask.id));
+        setDeleteTask(null);
+      } catch (err) {
+        console.error('Failed to delete task', err);
+      }
     }
   };
 
-  const getInitials = (name) => name.split(' ').map((n) => n[0]).join('');
+  const getInitials = (name) => {
+    if (!name || name === 'Unassigned') return '?';
+    return name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
+  };
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <div className={styles.titleSection}>
           <h1>Tasks</h1>
-          <p>{filtered.length} tasks found</p>
+          <p>{loading ? 'Loading...' : `${filtered.length} tasks found`}</p>
         </div>
         <div className={styles.controls}>
           <input
@@ -98,7 +130,11 @@ export default function TasksPage() {
       </div>
 
       <div className={styles.tableWrapper}>
-        {paginated.length > 0 ? (
+        {loading ? (
+          <div className={styles.emptyState}>
+            <p>Loading tasks...</p>
+          </div>
+        ) : paginated.length > 0 ? (
           <>
             <table className={styles.table}>
               <thead>
@@ -127,7 +163,7 @@ export default function TasksPage() {
                       </span>
                     </td>
                     <td>
-                      <span className={`${styles.statusBadge} ${styles[STATUS_MAP[task.status]]}`}>
+                      <span className={`${styles.statusBadge} ${styles[task.rawStatus.replace('_', '')] || styles.todo}`}>
                         {task.status}
                       </span>
                     </td>

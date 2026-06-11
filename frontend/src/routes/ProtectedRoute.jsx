@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner/LoadingSpinner';
 
 export function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return <LoadingSpinner fullPage label="Loading..." />;
@@ -11,13 +11,17 @@ export function ProtectedRoute({ children }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user?.must_reset_password) {
+    return <Navigate to="/reset-password" replace />;
   }
 
   return children;
 }
 
 export function AdminRoute({ children }) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { user, isAuthenticated, isAdmin, loading } = useAuth();
 
   if (loading) {
     return <LoadingSpinner fullPage label="Loading..." />;
@@ -25,6 +29,10 @@ export function AdminRoute({ children }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user?.must_reset_password) {
+    return <Navigate to="/reset-password" replace />;
   }
 
   if (!isAdmin) {

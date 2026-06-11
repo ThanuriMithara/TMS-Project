@@ -1,11 +1,9 @@
+import pg from 'pg';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
-import dotenv from 'dotenv';
-dotenv.config();
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: 'postgresql://postgres:1234@localhost:5432/tms_db',
 });
 
 const adapter = new PrismaPg(pool);

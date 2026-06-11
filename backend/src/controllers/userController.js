@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.js';
 import { hashPassword } from '../utils/hashHelper.js';
+import { sendWelcomeEmail } from '../utils/emailHelper.js';
 
 // GET /api/users - Get all users
 export const getUsers = async (req, res) => {
@@ -84,10 +85,12 @@ export const createUser = async (req, res) => {
       },
     });
 
+    // Send email asynchronously
+    sendWelcomeEmail(email, name, tempPassword);
+
     res.status(201).json({
       user,
-      temp_password: tempPassword,
-      message: 'User created. Share the temp password with them.',
+      message: 'User created. An email with the temporary password has been sent.',
     });
   } catch (error) {
     res.status(500).json({ errorCode: 'SERVER_ERROR', message: error.message });

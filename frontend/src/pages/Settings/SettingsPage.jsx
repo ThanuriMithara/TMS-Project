@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { settingsService } from '../../services/api';
 import styles from './SettingsPage.module.css';
 
 export default function SettingsPage() {
@@ -20,21 +21,35 @@ export default function SettingsPage() {
 
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [apiError, setApiError] = useState('');
 
-  const handleProfileSave = (e) => {
+  const handleProfileSave = async (e) => {
     e.preventDefault();
-    setProfileSuccess(true);
-    setTimeout(() => setProfileSuccess(false), 3000);
+    setApiError('');
+    try {
+      await settingsService.updateProfile({ name: profile.name });
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 3000);
+    } catch (err) {
+      setApiError(err.response?.data?.message || 'Failed to update profile');
+    }
   };
 
-  const handlePasswordSave = (e) => {
+  const handlePasswordSave = async (e) => {
     e.preventDefault();
+    setApiError('');
     if (passwords.newPassword !== passwords.confirm) {
+      setApiError('Passwords do not match');
       return;
     }
-    setPasswordSuccess(true);
-    setPasswords({ current: '', newPassword: '', confirm: '' });
-    setTimeout(() => setPasswordSuccess(false), 3000);
+    try {
+      await settingsService.changePassword({ new_password: passwords.newPassword });
+      setPasswordSuccess(true);
+      setPasswords({ current: '', newPassword: '', confirm: '' });
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (err) {
+      setApiError(err.response?.data?.message || 'Failed to change password');
+    }
   };
 
   return (
@@ -47,6 +62,7 @@ export default function SettingsPage() {
       {/* Profile Section */}
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>👤 Profile Information</h2>
+        {apiError && <div className={styles.errorMsg}>{apiError}</div>}
         {profileSuccess && (
           <div className={styles.successMsg}>✅ Profile updated successfully!</div>
         )}

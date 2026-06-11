@@ -3,33 +3,6 @@ import { authService } from '../services/api';
 
 const AuthContext = createContext(null);
 
-const MOCK_USERS = {
-  'admin@taskflow.com': {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@taskflow.com',
-    role: 'Administrator',
-    avatar: null,
-    password: 'admin123',
-  },
-  'pm@taskflow.com': {
-    id: '2',
-    name: 'Sarah Miller',
-    email: 'pm@taskflow.com',
-    role: 'Project Manager',
-    avatar: null,
-    password: 'pm123',
-  },
-  'collab@taskflow.com': {
-    id: '3',
-    name: 'John Doe',
-    email: 'collab@taskflow.com',
-    role: 'Collaborator',
-    avatar: null,
-    password: 'collab123',
-  },
-};
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -51,28 +24,16 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const mockUser = MOCK_USERS[email];
-    if (mockUser && mockUser.password === password) {
-      const fakeToken = 'jwt_' + btoa(email) + '_' + Date.now();
-      const userData = {
-        id: mockUser.id,
-        name: mockUser.name,
-        email: mockUser.email,
-        role: mockUser.role,
-        avatar: mockUser.avatar,
-      };
-
-      setToken(fakeToken);
-      setUser(userData);
-      localStorage.setItem('taskflow_token', fakeToken);
-      localStorage.setItem('taskflow_user', JSON.stringify(userData));
-      return { success: true };
+    const response = await authService.login(email, password);
+    const { token, user, must_reset_password } = response.data;
+    if (must_reset_password !== undefined) {
+      user.must_reset_password = must_reset_password;
     }
-
-    throw new Error('Incorrect email or password. Please try again.');
+    setToken(token);
+    setUser(user);
+    localStorage.setItem('taskflow_token', token);
+    localStorage.setItem('taskflow_user', JSON.stringify(user));
+    return { success: true, must_reset_password: user.must_reset_password };
   }, []);
 
   const logout = useCallback(() => {
@@ -83,9 +44,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const isAuthenticated = !!token && !!user;
-  const isAdmin = user?.role === 'Administrator';
-  const isProjectManager = user?.role === 'Project Manager';
-  const isCollaborator = user?.role === 'Collaborator';
+  const isAdmin = user?.role === 'admin';
+  const isProjectManager = user?.role === 'project_manager';
+  const isCollaborator = user?.role === 'collaborator';
 
   return (
     <AuthContext.Provider

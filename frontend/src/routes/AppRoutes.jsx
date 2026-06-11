@@ -3,6 +3,7 @@ import MainLayout from '../layouts/MainLayout';
 import { ProtectedRoute, AdminRoute } from './ProtectedRoute';
 
 import LoginPage from '../pages/Login/LoginPage';
+import ResetPasswordPage from '../pages/ResetPassword/ResetPasswordPage';
 import DashboardPage from '../pages/Dashboard/DashboardPage';
 import TasksPage from '../pages/Tasks/TasksPage';
 import TaskFormPage from '../pages/TaskForm/TaskFormPage';
@@ -15,6 +16,7 @@ export default function AppRoutes() {
     <Routes>
       {/* Public */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Protected — inside MainLayout */}
       <Route
