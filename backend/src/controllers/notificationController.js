@@ -38,3 +38,17 @@ export const markAllAsRead = async (req, res) => {
     res.status(500).json({ errorCode: 'SERVER_ERROR', message: error.message });
   }
 };
+// GET /api/notifications/unread-count
+export const getUnreadCount = async (req, res) => {
+  try {
+    const count = await prisma.notification.count({
+      where: {
+        user_id: req.user.userId,
+        is_read: false,
+      },
+    });
+    res.json({ unread_count: count });
+  } catch (error) {
+    res.status(500).json({ errorCode: 'SERVER_ERROR', message: error.message });
+  }
+};
