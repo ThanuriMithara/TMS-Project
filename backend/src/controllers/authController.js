@@ -87,3 +87,73 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ errorCode: 'SERVER_ERROR', message: error.message });
   }
 };
+// POST /api/auth/register
+export const register = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        errorCode: 'VALIDATION_ERROR',
+        message: 'Name, email and password are required',
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        errorCode: 'VALIDATION_ERROR',
+        message: 'Invalid email format',
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        errorCode: 'VALIDATION_ERROR',
+        message: 'Password must be at least 8 characters',
+      });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({
+        errorCode: 'VALIDATION_ERROR',
+        message: 'Email already exists',
+      });
+    }
+
+    const password_hash = await hashPassword(password);
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password_hash,
+        role: 'collaborator',
+        must_reset_password: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        created_at: true,
+      },
+    });
+
+    const token = generateToken({ userId: user.id, role: user.role });
+
+    res.status(201).json({ token, user });
+  } catch (error) {
+    res.status(500).json({ errorCode: 'SERVER_ERROR', message: error.message });
+  }
+};
+
+// POST /api/auth/logout
+export const logout = async (req, res) => {
+  try {
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    res.status(500).json({ errorCode: 'SERVER_ERROR', message: error.message });
+  }
+};
