@@ -87,3 +87,18 @@ export const resetPassword = async (req, res) => {
     res.status(500).json({ errorCode: 'SERVER_ERROR', message: error.message });
   }
 };
+
+// PUT /api/auth/profile
+export const updateProfile = async (req, res) => {
+  try {
+    const { name } = req.body;
+    const user = await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { name },
+      select: { id: true, name: true, email: true, role: true }
+    });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ errorCode: 'SERVER_ERROR', message: error.message });
+  }
+};
